@@ -104,7 +104,7 @@ class D2_ApplyAlphaChannel:
         _, height, width, channels = image.shape
         
         # マスクの形状を確認し、適切に処理
-        # print(f"マスク形状: {mask.shape}, 次元数: {len(mask.shape)}") # デバッグ用出力
+        print(f"マスク形状: {mask.shape}, 次元数: {len(mask.shape)}") # デバッグ用出力
 
         # マスクの形状に応じて処理を分岐
         if len(mask.shape) == 2:  # 単一マスク (H, W)
@@ -139,11 +139,20 @@ class D2_ApplyAlphaChannel:
         
         # リサイズしてサイズを画像に合わせる（必要な場合）
         if processed_mask.shape[1] != height or processed_mask.shape[2] != width:
-            processed_mask = torch.nn.functional.interpolate(
-                processed_mask.unsqueeze(1).float(),
-                size=(height, width),
-                mode='bilinear'
-            ).squeeze(1)
+            # マスクのサイズが0の場合は、新しいマスクを作成する
+            if processed_mask.shape[1] == 0 or processed_mask.shape[2] == 0:
+                # logging.warning(f"マスクのサイズが0です。新しいマスクを作成します: {processed_mask.shape}")
+                # デフォルトでは完全に不透明なマスク（値が1.0）を作成
+                processed_mask = torch.ones((batch_size, height, width), 
+                                           dtype=torch.float32, 
+                                           device=processed_mask.device)
+            else:
+                # 通常のリサイズ処理
+                processed_mask = torch.nn.functional.interpolate(
+                    processed_mask.unsqueeze(1).float(),
+                    size=(height, width),
+                    mode='bilinear'
+                ).squeeze(1)
         
         # 要求された場合はマスクを反転（1.0が透明に、0.0が不透明になる）
         if invert_mask:
@@ -378,5 +387,3 @@ NODE_CLASS_MAPPINGS = {
     "D2 Save PSD": D2_SavePSD,
     "D2 Extract Alpha": D2_ExtractAlpha
 }
-
-
