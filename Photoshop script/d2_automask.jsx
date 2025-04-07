@@ -298,15 +298,19 @@ function processMaskLayers(doc, invertMask, logFile, maskLayerName) {
     
     // 全レイヤーの表示状態を保存し、非表示にする関数
     function hideAllLayers(layerSet) {
+        Logger.writeLog(logFile, "    レイヤー表示状態保存");
+
         for (var i = 0; i < layerSet.layers.length; i++) {
             var layer = layerSet.layers[i];
+
+            Logger.writeLog(logFile, "      " + layer.name + " / " + layer.visible);
+
             // レイヤーの表示状態を保存（後で復元するため）
             if(layer.visible){
                 visibleLayers.push(layer);
             }
             // レイヤーを非表示に
             layer.visible = false;
-            Logger.writeLog(logFile, "レイヤー表示状態保存: " + layer.name + " / " + layer.wasVisible);
             
             // レイヤーセットの場合は再帰的に処理
             if (layer.typename === "LayerSet") {
@@ -351,140 +355,131 @@ function processMaskLayers(doc, invertMask, logFile, maskLayerName) {
                 Logger.writeLog(logFile, "    マスクレイヤー検出: " + layer.name + " (種類: " + layer.typename + ")");
                 
                 try {
-                    // 選択範囲を作成 - ScriptingListenerから記録したコードを使用
+                    // 新しい方法：マスクレイヤーの画像をコピーして対象レイヤーのマスクに適用
                     try {
-                        // ドキュメントでレイヤーを選択
+                        // 1. マスクレイヤーの画像をコピー
                         doc.activeLayer = layer;
+                        Logger.debug("  マスクレイヤーをアクティブにしました: " + layer.name);
+                        Logger.writeLog(logFile, "    マスクレイヤーをアクティブにしました: " + layer.name);
                         
-                        // レイヤーのRGBチャンネルから選択範囲を作成（ScriptingListenerの記録に基づく）
-                        var idset = stringIDToTypeID("set");
-                        var desc = new ActionDescriptor();
-                        var idnull = stringIDToTypeID("null");
-                        var ref1 = new ActionReference();
-                        var idchannel = stringIDToTypeID("channel");
-                        var idselection = stringIDToTypeID("selection");
-                        ref1.putProperty(idchannel, idselection);
-                        desc.putReference(idnull, ref1);
-                        var idto = stringIDToTypeID("to");
-                        var ref2 = new ActionReference();
-                        var idchannel = stringIDToTypeID("channel");
-                        var idchannel = stringIDToTypeID("channel");
-                        var idRGB = stringIDToTypeID("RGB");
-                        ref2.putEnumerated(idchannel, idchannel, idRGB);
-                        desc.putReference(idto, ref2);
-                        executeAction(idset, desc, DialogModes.NO);
+                        // レイヤーの内容をコピー
+                        app.activeDocument.activeLayer = layer;
+                        app.activeDocument.selection.selectAll();
+                        app.activeDocument.selection.copy();
+                        app.activeDocument.selection.deselect();
+                        Logger.debug("  マスクレイヤーの画像をコピーしました");
+                        Logger.writeLog(logFile, "    マスクレイヤーの画像をコピーしました");
                         
-                        Logger.debug("  ScriptingListener記録コードで選択範囲の作成に成功しました");
-                        Logger.writeLog(logFile, "    選択範囲の作成に成功");
-                    } catch(e) {
-                        Logger.debug("  選択範囲作成エラー (ScriptingListener方式): " + e);
-                        Logger.writeLog(logFile, "    選択範囲作成エラー: " + e);
-                        
-                        // 代替の選択方法を試す
-                        try {
-                            // 透明度を選択 - 別のAPI方法を試す
-                            var idSet = charIDToTypeID("setd");
-                            var desc = new ActionDescriptor();
-                            var idNull = charIDToTypeID("null");
-                            var ref = new ActionReference();
-                            var idChnl = charIDToTypeID("Chnl");
-                            var idfsel = charIDToTypeID("fsel");
-                            ref.putProperty(idChnl, idfsel);
-                            desc.putReference(idNull, ref);
-                            var idTo = charIDToTypeID("T   ");
-                            var refTo = new ActionReference();
-                            var idChnl = charIDToTypeID("Chnl");
-                            var idTrsp = charIDToTypeID("Trsp");
-                            refTo.putEnumerated(idChnl, idChnl, idTrsp);
-                            desc.putReference(idTo, refTo);
-                            app.executeAction(idSet, desc, DialogModes.NO);
-                            Logger.debug("  代替選択範囲の作成に成功しました");
-                            Logger.writeLog(logFile, "    代替選択範囲の作成に成功");
-                        } catch(e2) {
-                            Logger.debug("  選択範囲作成エラー2: " + e2);
-                            Logger.writeLog(logFile, "    すべての選択範囲作成方法が失敗: " + e2);
-                            alert("レイヤー「" + layer.name + "」から選択範囲を作成できませんでした。");
-                            continue; // 次のレイヤーに進む
-                        }
-                    }
-                    
-                    // 必要に応じて反転
-                    if (invertMask) {
-                        app.activeDocument.selection.invert();
-                        Logger.writeLog(logFile, "    選択範囲を反転しました");
-                    }
-                    
-                    // マスクレイヤーの上のレイヤーを選択（存在する場合）
-                    if (i > 0) {
-                        var targetLayer = layerSet.layers[i - 1];
-                        doc.activeLayer = targetLayer;
-                        Logger.writeLog(logFile, "    ターゲットレイヤー: " + targetLayer.name + " (種類: " + targetLayer.typename + ")");
-                        
-                        // レイヤーマスクを追加 - ScriptingListenerから記録したコードに近い方法
-                        try {
-                            // Photoshopでレイヤーマスクを追加する基本コマンド
-                            var idMk = charIDToTypeID("Mk  ");
-                            var desc = new ActionDescriptor();
-                            var idNw = charIDToTypeID("Nw  ");
-                            var idChnl = charIDToTypeID("Chnl");
-                            desc.putClass(idNw, idChnl);
-                            var idAt = charIDToTypeID("At  ");
-                            var ref = new ActionReference();
-                            var idChnl = charIDToTypeID("Chnl");
-                            var idMsk = charIDToTypeID("Msk ");
-                            ref.putEnumerated(idChnl, idChnl, idMsk);
-                            desc.putReference(idAt, ref);
+                        // 2. 対象レイヤー（マスクレイヤーの一つ上）をアクティブにする
+                        if (i > 0) {
+                            var targetLayer = layerSet.layers[i - 1];
+                            doc.activeLayer = targetLayer;
+                            Logger.writeLog(logFile, "    ターゲットレイヤー: " + targetLayer.name + " (種類: " + targetLayer.typename + ")");
                             
-                            // 選択範囲を使用
-                            var idUsng = charIDToTypeID("Usng");
-                            var idUsrM = charIDToTypeID("UsrM");
-                            var idRvlS = charIDToTypeID("RvlS");
-                            desc.putEnumerated(idUsng, idUsrM, idRvlS);
-                            
-                            // コマンド実行
-                            executeAction(idMk, desc, DialogModes.NO);
-                            
-                            Logger.debug("  レイヤーマスクの適用に成功しました");
-                            Logger.writeLog(logFile, "    レイヤーマスクの適用に成功");
-                            // ターゲットレイヤーを非表示にする
-                            targetLayer.visible = false;
-                            Logger.writeLog(logFile, "    ターゲットレイヤーを非表示にしました");
-                            processedCount++;
-                        } catch(e) {
-                            Logger.debug("  レイヤーマスクの適用に失敗: " + e);
-                            Logger.writeLog(logFile, "    レイヤーマスクの適用に失敗: " + e);
-                            
-                            // 別の方法を試す - より単純なコード
                             try {
-                                var idMk = stringIDToTypeID("make");
-                                var desc2 = new ActionDescriptor();
-                                var idNw = charIDToTypeID("Nw  ");
-                                var idChnl = charIDToTypeID("Chnl");
-                                desc2.putClass(idNw, idChnl);
-                                var idAt = charIDToTypeID("At  ");
-                                var ref2 = new ActionReference();
-                                var idChnl = charIDToTypeID("Chnl");
-                                var idMsk = charIDToTypeID("Msk ");
-                                ref2.putEnumerated(idChnl, idChnl, idMsk);
-                                desc2.putReference(idAt, ref2);
-                                executeAction(idMk, desc2, DialogModes.NO);
+                                // 3. レイヤーマスクを作成（空のマスク）
+                                var idmake = stringIDToTypeID("make");
+                                var desc = new ActionDescriptor();
+                                var idnew = stringIDToTypeID("new");
+                                var idchannel = stringIDToTypeID("channel");
+                                desc.putClass(idnew, idchannel);
+                                var idat = stringIDToTypeID("at");
+                                var ref = new ActionReference();
+                                var idchannel = stringIDToTypeID("channel");
+                                var idchannel = stringIDToTypeID("channel");
+                                var idmask = stringIDToTypeID("mask");
+                                ref.putEnumerated(idchannel, idchannel, idmask);
+                                desc.putReference(idat, ref);
+                                var idusing = stringIDToTypeID("using");
+                                var iduserMaskEnabled = stringIDToTypeID("userMaskEnabled");
+                                var idrevealAll = stringIDToTypeID("revealAll");
+                                desc.putEnumerated(idusing, iduserMaskEnabled, idrevealAll);
+                                executeAction(idmake, desc, DialogModes.NO);
+                                Logger.debug("  空のレイヤーマスクを作成しました");
+                                Logger.writeLog(logFile, "    空のレイヤーマスクを作成しました");
                                 
-                                Logger.debug("  代替方法でレイヤーマスクを適用しました");
-                                Logger.writeLog(logFile, "    代替方法でレイヤーマスクを適用しました");
+                                // 4. マスクのチャンネルに画像を貼り付ける
+                                // マスクチャンネルを表示
+                                var idshow = stringIDToTypeID("show");
+                                var desc2 = new ActionDescriptor();
+                                var idnull = stringIDToTypeID("null");
+                                var list = new ActionList();
+                                var ref2 = new ActionReference();
+                                var idchannel = stringIDToTypeID("channel");
+                                var idordinal = stringIDToTypeID("ordinal");
+                                var idtargetEnum = stringIDToTypeID("targetEnum");
+                                ref2.putEnumerated(idchannel, idordinal, idtargetEnum);
+                                list.putReference(ref2);
+                                desc2.putList(idnull, list);
+                                executeAction(idshow, desc2, DialogModes.NO);
+                                
+                                // 必要に応じてマスクを反転
+                                if (invertMask) {
+                                    // マスクを反転するためにペースト前に選択範囲を反転
+                                    app.activeDocument.selection.selectAll();
+                                    app.activeDocument.selection.invert();
+                                    Logger.writeLog(logFile, "    マスク用の選択範囲を反転しました");
+                                } else {
+                                    app.activeDocument.selection.selectAll();
+                                }
+                                
+                                // コピーした画像を貼り付け
+                                var idpaste = stringIDToTypeID("paste");
+                                var desc3 = new ActionDescriptor();
+                                var idantiAlias = stringIDToTypeID("antiAlias");
+                                var idantiAliasType = stringIDToTypeID("antiAliasType");
+                                var idantiAliasNone = stringIDToTypeID("antiAliasNone");
+                                desc3.putEnumerated(idantiAlias, idantiAliasType, idantiAliasNone);
+                                var idas = stringIDToTypeID("as");
+                                var idpixel = stringIDToTypeID("pixel");
+                                desc3.putClass(idas, idpixel);
+                                executeAction(idpaste, desc3, DialogModes.NO);
+                                app.activeDocument.selection.deselect();
+                                
+                                Logger.debug("  マスクチャンネルに画像を貼り付けました");
+                                Logger.writeLog(logFile, "    マスクチャンネルに画像を貼り付けました");
+                                
+                                // マスクチャンネルを非表示にする
+                                var idhide = stringIDToTypeID("hide");
+                                var desc4 = new ActionDescriptor();
+                                var idnull = stringIDToTypeID("null");
+                                var list2 = new ActionList();
+                                var ref3 = new ActionReference();
+                                var idchannel = stringIDToTypeID("channel");
+                                var idordinal = stringIDToTypeID("ordinal");
+                                var idtargetEnum = stringIDToTypeID("targetEnum");
+                                ref3.putEnumerated(idchannel, idordinal, idtargetEnum);
+                                list2.putReference(ref3);
+                                desc4.putList(idnull, list2);
+                                executeAction(idhide, desc4, DialogModes.NO);
+                                
+                                // RGBチャンネルに戻る
+                                var idselect = stringIDToTypeID("select");
+                                var desc5 = new ActionDescriptor();
+                                var idnull = stringIDToTypeID("null");
+                                var ref4 = new ActionReference();
+                                var idchannel = stringIDToTypeID("channel");
+                                var idchannel = stringIDToTypeID("channel");
+                                var idRGB = stringIDToTypeID("RGB");
+                                ref4.putEnumerated(idchannel, idchannel, idRGB);
+                                desc5.putReference(idnull, ref4);
+                                executeAction(idselect, desc5, DialogModes.NO);
+                                
                                 // ターゲットレイヤーを非表示にする
                                 targetLayer.visible = false;
                                 Logger.writeLog(logFile, "    ターゲットレイヤーを非表示にしました");
                                 processedCount++;
-                            } catch(e2) {
-                                Logger.debug("  すべてのマスク適用方法が失敗: " + e2);
-                                Logger.writeLog(logFile, "    すべてのマスク適用方法が失敗: " + e2);
-                                alert("レイヤー「" + targetLayer.name + "」へのマスク適用に失敗しました: " + e2);
+                            } catch(e) {
+                                Logger.debug("  レイヤーマスクの適用に失敗: " + e);
+                                Logger.writeLog(logFile, "    レイヤーマスクの適用に失敗: " + e);
+                                alert("レイヤー「" + targetLayer.name + "」へのマスク適用に失敗しました: " + e);
                             }
                         }
+                    } catch(e) {
+                        Logger.debug("  マスク処理中にエラー: " + e);
+                        Logger.writeLog(logFile, "    マスク処理中にエラー: " + e);
+                        alert("レイヤー「" + layer.name + "」の処理中にエラーが発生しました: " + e);
                     }
-                    
-                    // 選択を解除
-                    app.activeDocument.selection.deselect();
                     
                     // マスクレイヤーを非表示に
                     layer.visible = false;
@@ -625,25 +620,20 @@ function main() {
             var processedCount = processMaskLayers(docRef, settings.invertMask, logFile, settings.maskLayerName);
             totalProcessed += processedCount;
             
-            if (processedCount > 0) {
-                // ファイル名を生成（同じ名前で保存）
-                var saveFile = new File(outputFolder.fsName + "/" + docRef.name);
-                
-                // PSDとして保存
-                var psdSaveOptions = new PhotoshopSaveOptions();
-                psdSaveOptions.embedColorProfile = true;
-                psdSaveOptions.alphaChannels = true;
-                psdSaveOptions.layers = true;
-                
-                docRef.saveAs(saveFile, psdSaveOptions, true, Extension.LOWERCASE);
-                fileProcessed++;
-                
-                // ログに成功を書き込む
-                Logger.writeLog(logFile, "  ✓ " + processedCount + "個のマスクを適用し保存しました: " + saveFile.fsName);
-            } else {
-                // ログに情報を書き込む
-                Logger.writeLog(logFile, "  - マスクレイヤーが見つからないか、処理に失敗しました");
-            }
+            // ファイル名を生成（同じ名前で保存）
+            var saveFile = new File(outputFolder.fsName + "/" + docRef.name);
+            
+            // PSDとして保存
+            var psdSaveOptions = new PhotoshopSaveOptions();
+            psdSaveOptions.embedColorProfile = true;
+            psdSaveOptions.alphaChannels = true;
+            psdSaveOptions.layers = true;
+            
+            docRef.saveAs(saveFile, psdSaveOptions, true, Extension.LOWERCASE);
+            fileProcessed++;
+            
+            // ログに成功を書き込む
+            Logger.writeLog(logFile, "  ✓ " + processedCount + "個のマスクを適用し保存しました: " + saveFile.fsName);
             
             // ドキュメントを閉じる
             docRef.close(SaveOptions.DONOTSAVECHANGES);
