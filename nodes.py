@@ -104,7 +104,7 @@ class D2_ApplyAlphaChannel:
         _, height, width, channels = image.shape
         
         # マスクの形状を確認し、適切に処理
-        print(f"マスク形状: {mask.shape}, 次元数: {len(mask.shape)}") # デバッグ用出力
+        # print(f"マスク形状: {mask.shape}, 次元数: {len(mask.shape)}") # デバッグ用出力
 
         # マスクの形状に応じて処理を分岐
         if len(mask.shape) == 2:  # 単一マスク (H, W)
@@ -141,11 +141,12 @@ class D2_ApplyAlphaChannel:
         if processed_mask.shape[1] != height or processed_mask.shape[2] != width:
             # マスクのサイズが0の場合は、新しいマスクを作成する
             if processed_mask.shape[1] == 0 or processed_mask.shape[2] == 0:
-                # logging.warning(f"マスクのサイズが0です。新しいマスクを作成します: {processed_mask.shape}")
-                # デフォルトでは完全に不透明なマスク（値が1.0）を作成
-                processed_mask = torch.ones((batch_size, height, width), 
-                                           dtype=torch.float32, 
-                                           device=processed_mask.device)
+                # # logging.warning(f"マスクのサイズが0です。新しいマスクを作成します: {processed_mask.shape}")
+                # # デフォルトでは完全に不透明なマスク（値が1.0）を作成
+                # processed_mask = torch.ones((batch_size, height, width), 
+                #                            dtype=torch.float32, 
+                #                            device=processed_mask.device)
+                return (image,)
             else:
                 # 通常のリサイズ処理
                 processed_mask = torch.nn.functional.interpolate(
@@ -235,6 +236,7 @@ class D2_SavePSD:
                         alpha_rgb = alpha_mask.convert("RGB")
                         alpha_layer = PixelLayer.frompil(alpha_rgb, psd)
                         alpha_layer.name = alpha_layer_name
+                        alpha_layer.visible = False
                         psd.append(alpha_layer)
                     
                     # 次にRGBレイヤーを追加
@@ -275,6 +277,7 @@ class D2_SavePSD:
                         alpha_rgb = alpha_mask.convert("RGB")
                         alpha_layer = PixelLayer.frompil(alpha_rgb, psd)
                         alpha_layer.name = alpha_layer_name
+                        alpha_layer.visible = False
                         psd.append(alpha_layer)
                     
                     # 次にRGBレイヤーを追加
