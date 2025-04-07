@@ -129,7 +129,7 @@ class D2_ApplyAlphaChannel:
             
         else:
             # 対応できない場合はリサイズして強制的に形状を合わせる
-            logging.warning(f"警告: 予期しないマスク形状 {mask.shape} です。リサイズを試みます")
+            logging.warning(f"Warning: Unexpected mask shape {mask.shape}. Attempting to resize")
             # 一度平坦化してからリサイズ
             processed_mask = torch.nn.functional.interpolate(
                 mask.reshape(batch_size, 1, -1, width).float(), # .float() を追加して型エラーを回避
@@ -241,7 +241,7 @@ class D2_SavePSD:
                 # PSDを保存
                 psd.save(os.path.join(full_output_folder, file))
                 
-                logging.info(f"PSDファイルが正常に保存されました: {file}")
+                logging.info(f"PSD file was successfully saved: {file}")
             
             else:  # file_mode == "multi_file"
                 # 複数ファイルモード: 各画像を個別のPSDファイルに保存
@@ -280,11 +280,12 @@ class D2_SavePSD:
                     # PSDを保存
                     psd.save(os.path.join(full_output_folder, file))
                     
-                    logging.info(f"PSDファイル {batch_number+1}/{batch_size} が正常に保存されました: {file}")
+                    logging.info(f"PSD file {batch_number+1}/{batch_size} was successfully saved: {file}")
+
             
         except Exception as e:
-            logging.warning(f"PSD保存中にエラーが発生: {str(e)}")
-            logging.warning("代替方法としてPNG形式で保存します...")
+            logging.warning(f"Error occurred while saving PSD: {str(e)}")
+            logging.warning("Saving in PNG format as an alternative...")
             
             # 代替方法: 個別のPNGとして保存
             for i, img_tensor in enumerate(images):
@@ -294,7 +295,7 @@ class D2_SavePSD:
                     alt_path = os.path.join(full_output_folder, alt_file)
                     img_pil.save(alt_path)
                 except Exception as alt_e:
-                    logging.warning(f"PNG保存にも失敗: {str(alt_e)}")
+                    logging.warning(f"Failed to save as PNG as well: {str(alt_e)}")
 
         # 空の辞書を返して NoneType エラーを回避
         return {}
@@ -353,12 +354,12 @@ class D2_ExtractAlpha:
                                              device=rgb_tensor.device)
                 rgb_alpha_tensor[..., :3] = rgb_tensor # RGBチャンネルをコピー
             elif rgb_tensor.shape[-1] == 4: # extract_alpha_maskが正しく動作していれば、これは起こらないはずです
-                 # もし入力が何らかの理由でRGBAだった場合、そのまま使用しますが、アルファが不透明であることを確認しますか？
-                 # それとも入力を信頼しますか？現時点では入力を信頼します。
-                 logging.warning("警告: extract_alpha_maskから派生したrgb_tensorが予期せず4チャンネルを持っていました。そのまま使用します。")
-                 rgb_alpha_tensor = rgb_tensor
+                # もし入力が何らかの理由でRGBAだった場合、そのまま使用しますが、アルファが不透明であることを確認しますか？
+                # それとも入力を信頼しますか？現時点では入力を信頼します。
+                logging.warning("Warning: rgb_tensor derived from extract_alpha_mask unexpectedly had 4 channels. Using it as is.")
+                rgb_alpha_tensor = rgb_tensor
             else:
-                 raise ValueError(f"extract_alpha_maskからのrgb_tensorで予期しないチャンネル数です: {rgb_tensor.shape[-1]}")
+                raise ValueError(f"Unexpected number of channels in rgb_tensor from extract_alpha_mask: {rgb_tensor.shape[-1]}")
             
             # リストに追加
             alpha_tensors.append(alpha_tensor)
