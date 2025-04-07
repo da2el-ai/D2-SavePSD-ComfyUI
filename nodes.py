@@ -176,7 +176,7 @@ class D2_SavePSD:
             "required": {
                 "images": ("IMAGE",),
                 "filename_prefix": ("STRING", {"default": "ComfyUI"}),
-                "file_mode": (["single_file", "multi_file"],),
+                "file_mode": (["multi_file", "single_file"],),
                 "alpha_name": ("STRING", {"default": "_mask_"}),
                 "alpha_name_mode": (["simple", "suffix"],)
             }
