@@ -1,0 +1,14 @@
+[project]
+description = "Saves the image in Photoshop format (PSD)"
+license = {file = "LICENSE"}
+name = "D2-SavePSD-ComfyUI"
+version = "0.9.0"
+
+[project.urls]
+Repository = "https://github.com/da2el-ai/D2-SavePSD-ComfyUI"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+DisplayName = "D2-SavePSD-ComfyUI"
+Icon = ""
+PublisherId = "da2el"
