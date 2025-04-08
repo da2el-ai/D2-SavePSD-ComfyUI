@@ -154,12 +154,17 @@ Save the script file <a href="./Photoshop script/d2_automask.jsx" target="_blank
   - Name of the target mask layer. When blank, `_mask_` is applied
 - `マスクを反転する`
   - When checked, inverts the selection and masks
-
+- `マスクレイヤーを削除する`
+  - Delete mask layers when saving files
 
 
 ---
 
 ## :blossom: Update History
+
+**2025.04.09**
+
+- PS Script: Added option to delete mask layers
 
 **2025.04.07**
 

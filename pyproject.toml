@@ -2,7 +2,7 @@
 description = "Saves the image in Photoshop format (PSD)"
 license = {file = "LICENSE"}
 name = "D2-SavePSD-ComfyUI"
-version = "0.10.0"
+version = "0.11.0"
 
 [project.urls]
 Repository = "https://github.com/da2el-ai/D2-SavePSD-ComfyUI"
