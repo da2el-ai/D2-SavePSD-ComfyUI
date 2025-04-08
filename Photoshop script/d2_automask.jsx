@@ -23,6 +23,7 @@ var SettingsManager = function() {
             settingsFile.writeln("outputFolder=" + settings.outputFolder);
             settingsFile.writeln("invertMask=" + settings.invertMask);
             settingsFile.writeln("maskLayerName=" + settings.maskLayerName);
+            settingsFile.writeln("removeMaskLayer=" + settings.removeMaskLayer);
             
             settingsFile.close();
             Logger.debug("設定を保存しました: " + settingsFile.fsName);
@@ -57,8 +58,8 @@ var SettingsManager = function() {
                     var key = parts[0];
                     var value = parts[1];
                     
-                    // invertMaskは論理値に変換
-                    if (key === "invertMask") {
+                    // 論理値に変換
+                    if (key === "invertMask" || key === "removeMaskLayer") {
                         settings[key] = (value === "true");
                     } else {
                         settings[key] = value;
@@ -209,6 +210,10 @@ function createDialog() {
     var invertMaskCheckbox = dialog.add("checkbox", undefined, "マスクを反転する");
     invertMaskCheckbox.value = false;
     
+    // マスクレイヤー削除オプション
+    var removeMaskLayerCheckbox = dialog.add("checkbox", undefined, "マスクレイヤーを削除する");
+    removeMaskLayerCheckbox.value = false;
+    
     // 設定を読み込んだ場合は値をセット
     if (savedSettings) {
         if (savedSettings.inputFolder) {
@@ -219,6 +224,9 @@ function createDialog() {
         }
         if (savedSettings.invertMask !== undefined) {
             invertMaskCheckbox.value = savedSettings.invertMask;
+        }
+        if (savedSettings.removeMaskLayer !== undefined) {
+            removeMaskLayerCheckbox.value = savedSettings.removeMaskLayer;
         }
         if (savedSettings.maskLayerName) {
             maskLayerNameEdit.text = savedSettings.maskLayerName;
@@ -261,6 +269,7 @@ function createDialog() {
             inputFolder: inputFolderEdit.text,
             outputFolder: outputFolderEdit.text,
             invertMask: invertMaskCheckbox.value,
+            removeMaskLayer: removeMaskLayerCheckbox.value,
             maskLayerName: maskLayerName
         };
         
@@ -285,11 +294,13 @@ function getPsdFiles(folderPath) {
 }
 
 // マスクレイヤーを処理する
-function processMaskLayers(doc, invertMask, logFile, maskLayerName) {
+function processMaskLayers(doc, invertMask, logFile, maskLayerName, removeMaskLayer) {
     // 処理されたマスクカウント
     var processedCount = 0;
     // ファイルを開いた時に表示されていたレイヤーのリスト
     var visibleLayers = [];
+    // 削除対象のマスクレイヤーリスト
+    var maskLayersToRemove = [];
     
     // ログ情報を追加
     Logger.debug("処理開始: " + doc.name);
@@ -481,9 +492,14 @@ function processMaskLayers(doc, invertMask, logFile, maskLayerName) {
                         alert("レイヤー「" + layer.name + "」の処理中にエラーが発生しました: " + e);
                     }
                     
-                    // マスクレイヤーを非表示に
+                    // マスクレイヤーを非表示にする
                     layer.visible = false;
                     Logger.writeLog(logFile, "    マスクレイヤーを非表示にしました");
+                    
+                    // 削除対象のマスクレイヤーを記録
+                    if (removeMaskLayer) {
+                        maskLayersToRemove.push(layer);
+                    }
                 } catch(e) {
                     Logger.debug("  マスク処理中にエラー: " + e);
                     Logger.writeLog(logFile, "    マスク処理中にエラー: " + e);
@@ -515,6 +531,23 @@ function processMaskLayers(doc, invertMask, logFile, maskLayerName) {
         Logger.debug("レイヤーの表示状態を復元しました");
     } catch(e) {
         Logger.debug("レイヤーの表示状態復元に失敗: " + e);
+    }
+    
+    // マスクレイヤーを削除
+    if (removeMaskLayer && maskLayersToRemove.length > 0) {
+        try {
+            Logger.debug("マスクレイヤーの削除を開始します: " + maskLayersToRemove.length + "個");
+            for (var i = 0; i < maskLayersToRemove.length; i++) {
+                var layerName = maskLayersToRemove[i].name;
+                maskLayersToRemove[i].remove();
+                Logger.debug("  マスクレイヤーを削除しました: " + layerName);
+                Logger.writeLog(logFile, "    マスクレイヤーを削除しました: " + layerName);
+            }
+            Logger.debug("マスクレイヤーの削除が完了しました");
+        } catch(e) {
+            Logger.debug("マスクレイヤーの削除中にエラー: " + e);
+            Logger.writeLog(logFile, "    マスクレイヤーの削除中にエラー: " + e);
+        }
     }
     
     return processedCount;
@@ -593,6 +626,7 @@ function main() {
     logFile.writeln("入力フォルダ: " + settings.inputFolder);
     logFile.writeln("出力フォルダ: " + outputFolder.fsName);
     logFile.writeln("マスク反転: " + (settings.invertMask ? "はい" : "いいえ"));
+    logFile.writeln("マスクレイヤー削除: " + (settings.removeMaskLayer ? "はい" : "いいえ"));
     logFile.writeln("マスクレイヤー名: " + settings.maskLayerName);
     logFile.writeln("処理ファイル数: " + psdFiles.length);
     logFile.writeln("----------------------------");
@@ -617,7 +651,7 @@ function main() {
             var docRef = app.open(psdFiles[i]);
             
             // マスクレイヤーを処理
-            var processedCount = processMaskLayers(docRef, settings.invertMask, logFile, settings.maskLayerName);
+            var processedCount = processMaskLayers(docRef, settings.invertMask, logFile, settings.maskLayerName, settings.removeMaskLayer);
             totalProcessed += processedCount;
             
             // ファイル名を生成（同じ名前で保存）
